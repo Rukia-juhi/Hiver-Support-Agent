@@ -1,318 +1,392 @@
-# AI Support Agent for AmazonHelp
+# Hiver Support Agent
 
 ## 1. Project Overview
 
-This project implements an AI-powered customer support agent for AmazonHelp using the Customer Support on Twitter dataset from Kaggle.
+This project builds an AI-powered customer support agent for Amazon using the Customer Support on Twitter dataset. The system is designed to classify incoming customer messages, retrieve similar historical conversations, generate a support response, and decide whether the issue should be automatically handled or escalated to a human agent.
 
-The agent performs three main tasks:
-
-1. Classifies an incoming customer message into a support intent.
-2. Retrieves a historically similar AmazonHelp conversation to ground the response.
-3. Decides whether the issue can be handled automatically or should be escalated.
-
-The goal is not to generate arbitrary responses, but to ground support replies in how AmazonHelp historically responded to similar customer issues.
+The project focuses on building a practical support automation pipeline while evaluating its performance using a manually reviewed golden dataset.
 
 ---
 
 ## 2. Dataset
 
-The project uses the Customer Support on Twitter dataset.
+The project uses the **Customer Support on Twitter** dataset from Kaggle. The dataset contains approximately 3 million tweets involving customer support interactions between customers and companies.
 
-Dataset columns include:
+The dataset contains the following columns:
 
-- `tweet_id`
-- `author_id`
-- `inbound`
-- `created_at`
-- `text`
-- `response_tweet_id`
-- `in_response_to_tweet_id`
+* `tweet_id`
+* `author_id`
+* `inbound`
+* `created_at`
+* `text`
+* `response_tweet_id`
+* `in_response_to_tweet_id`
 
-The dataset contains approximately 2.8 million tweets.
+Amazon was selected as the target brand because `AmazonHelp` has a large number of customer support interactions.
 
-AmazonHelp was selected because it was one of the largest support accounts in the dataset, with approximately 170,000 tweets.
+The raw dataset is not included in the repository because of its large size.
 
-From these tweets, customer → AmazonHelp response pairs were extracted.
-
-### Data processing
-
-Original AmazonHelp conversations:
-
-**168,814**
-
-After removing missing values, duplicate customer messages and very short messages:
-
-**152,983**
-
-These conversations were used as the historical support corpus.
+The original dataset contained **2,811,774 tweets**. After extracting AmazonHelp customer-support conversations, approximately **168,814 customer-reply pairs** were obtained. After cleaning and removing very short messages, **152,983 training examples** were available.
 
 ---
 
-## 3. Intent Taxonomy
+## 3. How to Run
 
-The project uses 11 intents:
+### Step 1: Clone the Repository
 
-| Intent | Description |
-|---|---|
-| `delivery_issue` | Late, missing or incorrectly delivered packages |
-| `order_issue` | Order status, cancellation and order problems |
-| `return_refund` | Returns, refunds, replacements and damaged items |
-| `payment_billing` | Charges, payments and billing issues |
-| `product_device_issue` | Kindle, Echo, Alexa, Fire TV and device problems |
-| `digital_service_issue` | Prime Video and other digital-service problems |
-| `account_security` | Account access, suspicious messages and security issues |
-| `seller_issue` | Third-party seller and marketplace problems |
-| `information_feedback` | Product information, availability, promotions and feedback |
-| `general_support` | Support requests that do not fit another category |
-| `non_support` | Thanks, greetings, compliments and casual messages |
+```bash
+git clone https://github.com/Rukia-juhi/Hiver-Support-Agent.git
+cd Hiver-Support-Agent
+```
+
+### Step 2: Create a Virtual Environment
+
+For Windows:
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+For macOS/Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### Step 3: Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 4: Add the Dataset
+
+Download the **Customer Support on Twitter** dataset from Kaggle and place `twcs.csv` inside the `data/` folder:
+
+```text
+data/twcs.csv
+```
+
+The raw dataset is not included in this repository because of its size.
+
+### Step 5: Prepare the Data
+
+Run the following commands to extract AmazonHelp conversations, clean the data, and generate weak labels:
+
+```bash
+python src/conversations.py
+python src/prepare_training_data.py
+python src/weak_label_data.py
+```
+
+### Step 6: Run the Evaluations
+
+Run the intent classification, escalation, and retrieval evaluations:
+
+```bash
+python src/final_evaluation.py
+python src/final_escalation_evaluation.py
+python src/evaluate_retrieval.py
+```
+
+### Step 7: View the Results
+
+The main evaluation results are saved in the `results/` directory:
+
+```text
+results/final_intent_predictions.csv
+results/final_escalation_results.csv
+results/retrieval_evaluation.csv
+```
+
+The manually reviewed golden set is available at:
+
+```text
+data/golden_set.csv
+```
 
 ---
 
-## 4. System Architecture
+## 4. Intent Taxonomy
 
-The agent consists of three major components.
+The system uses 11 support intents:
 
-### Intent Classifier
-
-A TF-IDF based Logistic Regression classifier is used.
-
-Features include:
-
-- Word n-grams (1–2)
-- Character n-grams
-- Sublinear TF-IDF weighting
-- Class-balanced Logistic Regression
-
-### Historical Reply Retrieval
-
-For each customer message, TF-IDF similarity is used to retrieve historically similar customer messages and their AmazonHelp replies.
-
-The retrieved conversation provides evidence for generating a grounded response.
-
-### Escalation
-
-A rule-based escalation component identifies cases that should receive additional human attention.
-
-Examples include:
-
-- Security-related problems
-- Seller disputes
-- Repeated unresolved problems
-- Delivery failures
-- Refund disputes
-- Strong complaints
-- Explicit requests for human assistance
+1. **delivery_issue** – Late, missing, delayed, or incorrectly delivered packages.
+2. **order_issue** – Order status, cancellation, preorder, or replacement-order problems.
+3. **return_refund** – Returns, refunds, damaged items, wrong items, or refund disputes.
+4. **payment_billing** – Payment methods, unexpected charges, authorization, or billing issues.
+5. **product_device_issue** – Kindle, Echo, Alexa, Fire TV, and other Amazon device issues.
+6. **digital_service_issue** – Prime Video, streaming, Kindle content, applications, and other digital services.
+7. **account_security** – Account access, suspicious messages, phishing, or security concerns.
+8. **seller_issue** – Third-party seller problems and A-to-z Guarantee issues.
+9. **information_feedback** – Product availability, pricing, promotions, packaging feedback, and general information.
+10. **general_support** – General requests for customer support that do not fit another category.
+11. **non_support** – Thanks, greetings, compliments, jokes, casual conversation, and already-resolved issues.
 
 ---
 
-## 5. Evaluation Methodology
+## 5. System Architecture
 
-A manually reviewed golden set of 200 customer messages was used as the held-out evaluation set.
+The system consists of four main components:
 
-The classifier was trained on the weakly labelled historical dataset while golden-set examples were excluded from the training corpus.
+### 1. Intent Classification
 
-Retrieval evaluation also removed:
+The incoming customer message is classified into one of the predefined support intents.
 
-- Golden-set tweet IDs
-- Exact duplicate customer messages
+A TF-IDF based Logistic Regression model is used as the baseline/final prototype classifier.
 
-This prevents direct test-set leakage.
+### 2. Historical Reply Retrieval
+
+The system searches historical Amazon customer-support conversations using TF-IDF similarity.
+
+The most similar historical customer message and its Amazon response are retrieved to provide grounding for the response.
+
+### 3. Escalation Decision
+
+A rule-based escalation component determines whether the issue should be handled automatically or escalated to a human.
+
+Escalation is considered for cases involving security concerns, seller problems, unresolved issues, repeated complaints, delivery problems, refunds, order problems, and strong customer complaints.
+
+### 4. Evaluation
+
+The system is evaluated using a manually reviewed golden set of 200 customer messages.
+
+The evaluation measures:
+
+* Intent classification accuracy and F1-score
+* Retrieval similarity and quality
+* Escalation accuracy
+* LLM-as-judge response quality
 
 ---
 
-## 6. Results
+## 6. Evaluation Methodology
+
+A **200-example manually reviewed golden set** was created from Amazon customer-support conversations.
+
+The golden set contains:
+
+* Customer message
+* Historical Amazon reply
+* Intent label
+* Escalation decision
+* Escalation reason
+
+The classifier was evaluated on these 200 examples while excluding golden-set tweet IDs from the training data.
+
+For retrieval evaluation, both golden-set tweet IDs and exact duplicate customer messages were removed from the historical retrieval corpus. This provides a **leakage-reduced retrieval evaluation**.
+
+The evaluation is intended as a prototype benchmark rather than a production-level estimate.
+
+---
+
+## 7. Results
 
 ### Intent Classification
 
-| Method | Accuracy |
-|---|---:|
-| Majority-class baseline | 30.50% |
-| Initial TF-IDF classifier | 30.00% |
-| Improved classifier, 5-fold CV | 36.00% |
-| Final held-out classifier | **52.50%** |
+Three approaches were compared:
 
-The final classifier correctly classified:
+| Method                                             |   Accuracy |
+| -------------------------------------------------- | ---------: |
+| Majority-class baseline                            |     30.50% |
+| Initial TF-IDF classifier                          |     30.00% |
+| Improved classifier with word + character features |     36.00% |
+| Final weakly supervised classifier                 | **52.50%** |
 
-**105 / 200 messages**
+The final classifier achieved:
 
-and incorrectly classified:
+* **Accuracy:** 52.50%
+* **Macro F1:** 0.42
+* **Weighted F1:** 0.50
+* **Correct predictions:** 105
+* **Wrong predictions:** 95
+* **Test samples:** 200
 
-**95 / 200 messages**.
-
-The final model therefore improves substantially over the majority baseline.
-
----
-
-### Escalation
-
-The rule-based escalation system achieved:
-
-**59.50% accuracy**
-
-on the 200-example golden set.
-
-It correctly identified 54 of the 124 examples labelled for escalation.
-
-The main challenge was identifying unresolved issues that were expressed indirectly.
-
----
+The final model improved substantially over the majority baseline, although performance remains limited for several minority intents.
 
 ### Retrieval
 
-Leakage-free retrieval results:
+After removing exact golden-set message duplicates, the retrieval evaluation produced:
 
-| Metric | Result |
-|---|---:|
-| Average similarity | **0.5991** |
-| Median similarity | **0.4916** |
-| Minimum | 0.0000 |
-| Maximum | 1.0000 |
+* **Average similarity:** 0.5991
+* **Median similarity:** 0.4916
+* **Minimum similarity:** 0.0000
+* **Maximum similarity:** 1.0000
 
-The results show that many messages have useful lexical matches, but high similarity does not always mean that the retrieved response is actually useful.
+The results show that many customer messages have reasonably similar historical examples, but high text similarity does not always guarantee that the retrieved response is appropriate.
+
+### Escalation
+
+The improved rule-based escalation system achieved:
+
+* **Accuracy:** 59.50%
+* **No-escalation F1:** 0.62
+* **Escalation F1:** 0.57
+
+It correctly identified **54 of 124 escalation cases**.
+
+This shows that simple rules can provide a useful first-stage safety mechanism, but additional context and better decision boundaries are required.
 
 ---
 
-## 7. LLM-as-Judge Evaluation
+## 8. LLM-as-Judge Evaluation
 
-A sample of 50 retrieval results was evaluated using a rubric covering:
+A sample of 50 retrieval results was evaluated using an LLM-based rubric.
 
-- Relevance
-- Helpfulness
-- Groundedness
-- Tone
+Each response was scored from 0–2 on:
 
-Each category was scored from 0–2.
+* Relevance
+* Helpfulness
+* Groundedness
+* Tone
 
 Results:
 
-| Metric | Score |
-|---|---:|
-| Average relevance | 1.20 / 2 |
-| Average helpfulness | 1.16 / 2 |
-| Average groundedness | 2.00 / 2 |
-| Average tone | 2.00 / 2 |
-| Average total | 6.36 / 8 |
-| Pass rate | **76%** |
+* **Average relevance:** 1.20 / 2
+* **Average helpfulness:** 1.16 / 2
+* **Average groundedness:** 2.00 / 2
+* **Average tone:** 2.00 / 2
+* **Average total:** 6.36 / 8
+* **Pass rate:** 76% (38/50)
 
-The evaluation was performed by a single LLM-based judge. Therefore, human inter-rater agreement was not measured and the results should not be described as human agreement.
+The evaluation suggests that the retrieved historical replies were generally grounded and appropriately toned, while relevance and helpfulness were the main weaknesses.
 
----
-
-## 8. Top Failure Modes
-
-### 1. Delivery vs. General Support Confusion
-
-Many delivery-related complaints contain broad phrases such as "please help" or "customer service", causing the classifier to predict `general_support`.
-
-**Hypothesis:** More explicit examples separating delivery problems from generic support requests are needed.
-
-### 2. Information vs. Support Requests
-
-Questions about promotions, availability and shipping information can resemble active support problems.
-
-**Hypothesis:** Better intent definitions and more representative training examples would reduce this confusion.
-
-### 3. Rare Intents
-
-`account_security` and `seller_issue` have relatively few examples.
-
-The classifier frequently predicts more common classes instead.
-
-**Hypothesis:** Class-balanced training alone is insufficient when the underlying labelled examples are sparse.
-
-### 4. Multilingual and Encoding Problems
-
-Several non-English messages became incorrectly encoded during CSV processing.
-
-This resulted in unreadable text and very low retrieval similarity for some examples.
-
-**Hypothesis:** Consistent UTF-8 handling and multilingual embeddings would substantially improve these cases.
-
-### 5. Lexical Similarity Does Not Guarantee Useful Retrieval
-
-Some retrieved messages had high TF-IDF similarity but addressed a different problem.
-
-For example, two messages may share words such as "delivery", "package" or "Amazon" while requiring different resolutions.
-
-**Hypothesis:** Semantic embeddings and cross-encoder reranking would provide better retrieval quality.
+This was a **single-rater LLM evaluation**, so human agreement statistics such as Cohen's kappa were not measured.
 
 ---
 
-## 9. What Is Misleading About My Headline Number?
+## 9. Top Failure Modes
 
-The headline classification accuracy of **52.50%** should not be interpreted as production-level agent accuracy.
+### 1. Overprediction of General Support
 
-The test set contains only 200 examples and some intents are rare. In addition, the classifier was trained using weakly labelled historical data, while the evaluation labels were manually reviewed.
+The weak-labeling rules assign many messages to `general_support`, causing the classifier to overpredict this category.
 
-The dataset also contains multilingual and encoding issues.
+**Hypothesis:** Better intent definitions and manually labelled training examples would reduce this problem.
 
-Therefore, 52.50% is a useful held-out benchmark for this prototype, but it does not mean that the complete support agent would correctly solve 52.5% of real customer conversations.
+### 2. Minority Intent Performance
 
----
+Some intents, such as `seller_issue` and `account_security`, have very few examples.
 
-## 10. One-Week Improvement Plan
+**Hypothesis:** Class imbalance makes it difficult for the classifier to learn reliable decision boundaries.
 
-### Days 1–2
-Improve data quality and ensure all text is consistently stored as UTF-8.
+### 3. Similar Text but Wrong Context
 
-### Days 2–3
-Create additional labelled examples for rare intents such as seller and account-security issues.
+Retrieval can return messages with similar words but different underlying problems.
 
-### Days 3–4
-Replace TF-IDF retrieval with multilingual sentence embeddings.
+For example, several delivery-related messages can have extremely high similarity even when the actual customer situation differs.
 
-### Day 5
-Add a reranking stage to select the most useful historical response.
+**Hypothesis:** Semantic embeddings and intent-aware retrieval would improve contextual matching.
 
-### Day 6
-Improve escalation using confidence scores and intent-specific rules.
+### 4. Escalation False Negatives
 
-### Day 7
-Expand the golden set and repeat the complete evaluation.
+Some serious issues were classified as non-escalation, including unresolved refunds, repeated support requests, and lost packages.
 
----
+**Hypothesis:** The rule system needs stronger contextual reasoning instead of relying mainly on keywords.
 
-## 11. Limitations
+### 5. Non-English Messages
 
-The current prototype has several limitations:
+Some multilingual messages were difficult for the TF-IDF classifier and retrieval system.
 
-- Only one brand was evaluated.
-- The golden set contains 200 examples.
-- Weak supervision introduces label noise.
-- TF-IDF does not capture semantic similarity well.
-- Multilingual messages are affected by encoding issues.
-- Human inter-rater agreement was not available.
-- The escalation system is rule-based.
-
-These limitations are important when interpreting the reported metrics.
+**Hypothesis:** A multilingual embedding model would provide better representations for non-English customer messages.
 
 ---
 
-## 12. Reproducibility
+## 10. What Is Misleading About My Headline Number?
 
-The project is organized into separate scripts for:
+The headline accuracy of **52.50%** can be misleading if interpreted as production-level performance.
 
-- Data extraction
-- Data cleaning
-- Golden-set validation
-- Weak labelling
-- Intent classification
-- Retrieval
-- Escalation
-- Evaluation
+First, the evaluation set contains only **200 examples**, so it is relatively small.
 
-The main datasets and intermediate results are stored under `data/` and `results/`.
+Second, the training data uses **weakly generated labels**, rather than fully human-labelled historical data. Therefore, the model can learn errors introduced by the labeling rules.
 
-The complete pipeline can be reproduced by installing the dependencies listed in `requirements.txt` and running the scripts in the documented order.
+Third, the intent distribution is highly imbalanced. Some intents contain many more examples than others.
+
+Finally, the evaluation focuses mainly on intent classification. A production support agent would also need to produce correct replies, make safe escalation decisions, and handle multilingual and ambiguous customer requests.
+
+Therefore, **52.50% should be interpreted as a prototype benchmark, not as an estimate of real-world support automation accuracy.**
 
 ---
 
-## 13. Conclusion
+## 11. One-Week Improvement Plan
 
-The prototype demonstrates an end-to-end AI support workflow combining intent classification, historical-response retrieval and escalation.
+### Day 1–2: Improve Dataset Labelling
 
-The final classifier achieved **52.50% accuracy**, improving over the **30.50% majority baseline**. Retrieval achieved an average leakage-free similarity of **0.5991**, while the escalation component achieved **59.50% accuracy**.
+Create a larger manually labelled dataset with clearer intent definitions and balanced representation across all categories.
 
-The LLM-based evaluation found that **76% of sampled retrieved responses passed the quality threshold**.
+### Day 3: Improve Classification
 
-The results demonstrate that historical customer-support conversations can provide useful grounding for an AI support agent, while also highlighting the need for better semantic retrieval, multilingual handling, more labelled data and stronger escalation logic.
+Experiment with sentence embeddings or transformer-based classifiers instead of relying only on TF-IDF.
+
+### Day 4: Improve Retrieval
+
+Use semantic embeddings and combine similarity with intent matching.
+
+### Day 5: Improve Escalation
+
+Replace keyword-only rules with a classifier or LLM-based decision system using explicit safety criteria.
+
+### Day 6: Improve Evaluation
+
+Expand the golden set and introduce independent human reviewers to measure inter-rater agreement.
+
+### Day 7: End-to-End Testing
+
+Evaluate the complete system on unseen customer conversations and analyze errors by intent, language, and escalation severity.
+
+---
+
+## 12. Limitations
+
+The main limitations of the current prototype are:
+
+* The golden set contains only 200 examples.
+* Historical training labels are weak labels rather than fully human-labelled data.
+* The classifier is based on TF-IDF features.
+* Retrieval is based on lexical similarity.
+* Escalation uses rules rather than a learned decision model.
+* Human agreement was not measured.
+* Multilingual messages are not handled optimally.
+* The system has not been evaluated in a live production environment.
+
+---
+
+## 13. Reproducibility
+
+The project contains the source code, processed datasets, evaluation scripts, and results required to reproduce the experiments.
+
+The raw `twcs.csv` dataset is intentionally excluded from GitHub because of its size.
+
+The repository contains:
+
+```text
+src/
+├── conversations.py
+├── prepare_training_data.py
+├── weak_label_data.py
+├── intent_classifier.py
+├── improved_classifier.py
+├── final_evaluation.py
+├── final_escalation_evaluation.py
+├── evaluate_retrieval.py
+└── create_judge_sample.py
+```
+
+The main outputs are stored in:
+
+```text
+results/
+```
+
+---
+
+## 14. Conclusion
+
+This project demonstrates a complete prototype for an AI-powered customer support agent using real historical customer-service conversations.
+
+The final weakly supervised intent classifier achieved **52.50% accuracy**, improving over the **30.50% majority baseline**. Retrieval showed moderate similarity between incoming messages and historical support conversations, while the escalation system achieved **59.50% accuracy**.
+
+The LLM-based evaluation achieved a **76% pass rate**, with strong groundedness and tone but weaker relevance and helpfulness.
+
+The results demonstrate that historical customer-support data can provide useful grounding for an automated support agent, but substantial improvements in data quality, semantic retrieval, intent classification, and escalation reasoning are required before deployment in a production environment.
