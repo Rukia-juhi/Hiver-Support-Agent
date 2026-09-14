@@ -106,6 +106,44 @@ The manually reviewed golden set is available at:
 ```text
 data/golden_set.csv
 ```
+### Step 8: Run the Interactive Support Agent
+
+The project also includes an interactive end-to-end support agent that combines intent classification, historical reply retrieval, and escalation decisions.
+
+Run:
+
+```bash
+python src/agent.py
+```
+
+Enter a customer message when prompted. The agent returns:
+
+* Predicted intent
+* Most similar historical Amazon customer message
+* Similarity score
+* Historical Amazon reply used as a reference
+* Draft reply
+* Auto-handle or escalation decision
+* Reason for escalation
+
+Example:
+
+```text
+Customer message:
+My package is late and I still haven't received it.
+
+Intent:
+delivery_issue
+
+Decision:
+ESCALATE
+
+Reason:
+The issue appears unresolved or repeated.
+```
+
+The interactive agent is provided as a demonstration of the complete support-agent pipeline. The evaluation results reported in this README are produced by the separate evaluation scripts described above.
+
 
 ---
 
